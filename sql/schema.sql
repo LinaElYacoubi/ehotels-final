@@ -95,3 +95,84 @@ CREATE TABLE LOCATION (
         REFERENCES CHAMBRE(id_hotel, num_chambre)
         ON DELETE SET NULL
 );
+
+-- Table CHAINE_EMAIL
+CREATE TABLE CHAINE_EMAIL (
+    id_chaine INT,
+    email VARCHAR(100),
+    PRIMARY KEY (id_chaine, email),
+    FOREIGN KEY (id_chaine)
+        REFERENCES CHAINE(id_chaine)
+        ON DELETE CASCADE
+);
+
+
+--Table CHAINE_TELEPHONE
+CREATE TABLE CHAINE_EMAIL (
+    id_chaine INT,
+    email VARCHAR(100),
+    PRIMARY KEY (id_chaine, email),
+    FOREIGN KEY (id_chaine)
+        REFERENCES CHAINE(id_chaine)
+        ON DELETE CASCADE
+);
+
+
+
+--TABLE HOTEL_EMAIL
+CREATE TABLE HOTEL_EMAIL (
+    id_hotel INT,
+    email VARCHAR(100),
+    PRIMARY KEY (id_hotel, email),
+    FOREIGN KEY (id_hotel)
+        REFERENCES HOTEL(id_hotel)
+        ON DELETE CASCADE
+);
+
+
+
+--TABLE HOTEL-TELEPHONE
+CREATE TABLE HOTEL_EMAIL (
+    id_hotel INT,
+    email VARCHAR(100),
+    PRIMARY KEY (id_hotel, email),
+    FOREIGN KEY (id_hotel)
+        REFERENCES HOTEL(id_hotel)
+        ON DELETE CASCADE
+);
+
+
+-- TABLE COMMODITE
+CREATE TABLE COMMODITE (
+    id_commodite SERIAL PRIMARY KEY,
+    nom VARCHAR(100) UNIQUE NOT NULL
+);
+
+--TABLE CHAMBRE_COMMODITE
+CREATE TABLE CHAMBRE_COMMODITE (
+    id_hotel INT,
+    num_chambre INT,
+    id_commodite INT,
+    PRIMARY KEY (id_hotel, num_chambre, id_commodite),
+    FOREIGN KEY (id_hotel, num_chambre)
+        REFERENCES CHAMBRE(id_hotel, num_chambre)
+        ON DELETE CASCADE,
+    FOREIGN KEY (id_commodite)
+        REFERENCES COMMODITE(id_commodite)
+        ON DELETE CASCADE
+);
+
+
+--TABLE GESTION_HOTEL
+CREATE TABLE GESTION_HOTEL (
+    id_employe INT,
+    id_hotel INT,
+    date_debut DATE NOT NULL,
+    PRIMARY KEY (id_employe, id_hotel),
+    FOREIGN KEY (id_employe)
+        REFERENCES EMPLOYE(id_employe)
+        ON DELETE CASCADE,
+    FOREIGN KEY (id_hotel)
+        REFERENCES HOTEL(id_hotel)
+        ON DELETE CASCADE
+);
