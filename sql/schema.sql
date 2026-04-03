@@ -108,15 +108,14 @@ CREATE TABLE CHAINE_EMAIL (
 
 
 --Table CHAINE_TELEPHONE
-CREATE TABLE CHAINE_EMAIL (
+CREATE TABLE CHAINE_TELEPHONE (
     id_chaine INT,
-    email VARCHAR(100),
-    PRIMARY KEY (id_chaine, email),
+    telephone VARCHAR(20),
+    PRIMARY KEY (id_chaine, telephone),
     FOREIGN KEY (id_chaine)
         REFERENCES CHAINE(id_chaine)
         ON DELETE CASCADE
 );
-
 
 
 --TABLE HOTEL_EMAIL
@@ -132,15 +131,14 @@ CREATE TABLE HOTEL_EMAIL (
 
 
 --TABLE HOTEL-TELEPHONE
-CREATE TABLE HOTEL_EMAIL (
+CREATE TABLE HOTEL_TELEPHONE (
     id_hotel INT,
-    email VARCHAR(100),
-    PRIMARY KEY (id_hotel, email),
+    telephone VARCHAR(20),
+    PRIMARY KEY (id_hotel, telephone),
     FOREIGN KEY (id_hotel)
         REFERENCES HOTEL(id_hotel)
         ON DELETE CASCADE
 );
-
 
 -- TABLE COMMODITE
 CREATE TABLE COMMODITE (
