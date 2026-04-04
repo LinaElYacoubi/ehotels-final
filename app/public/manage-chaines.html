@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Chaînes – e-Hôtels</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">eH</div>
+      <span class="brand-name">e-Hôtels</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><span class="icon">⌂</span> Accueil</a>
+      <div class="nav-section">Opérations</div>
+      <a href="search.html"><span class="icon">◎</span> Recherche</a>
+      <a href="reservations.html"><span class="icon">◫</span> Réservations</a>
+      <a href="locations.html"><span class="icon">⊡</span> Locations</a>
+      <div class="nav-section">Administration</div>
+      <a href="manage-clients.html"><span class="icon">◯</span> Clients</a>
+      <a href="manage-employes.html"><span class="icon">◯</span> Employés</a>
+      <a href="manage-chaines.html" class="active"><span class="icon">◯</span> Chaînes</a>
+      <a href="manage-hotels.html"><span class="icon">◯</span> Hôtels</a>
+      <a href="manage-chambres.html"><span class="icon">◯</span> Chambres</a>
+      <div class="nav-section">Statistiques</div>
+      <a href="vues.html"><span class="icon">◈</span> Vues SQL</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="page">
+      <div class="top-bar">
+        <div>
+          <h1>Gestion des chaînes</h1>
+          <p class="page-subtitle">Administrer les chaînes hôtelières et leurs contacts.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal()">+ Ajouter une chaîne</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Nom</th><th>Siège social</th><th>Email</th><th>Téléphone</th><th>Hôtels</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="table-body">
+              <tr><td colspan="7" class="empty">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<dialog id="modal">
+  <div class="modal-header">
+    <h2 id="modal-title">Ajouter une chaîne</h2>
+    <button class="modal-close" onclick="closeModal()">×</button>
+  </div>
+  <div class="modal-body">
+    <form id="modal-form">
+      <input type="hidden" id="edit-id">
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:span 2"><label>Nom de la chaîne</label><input type="text" id="nom_chaine" required></div>
+        <div class="form-group" style="grid-column:span 2"><label>Adresse du siège social</label><input type="text" id="adr_siege" required></div>
+        <div class="form-group"><label>Email de contact</label><input type="email" id="email" placeholder="ex: contact@chaine.com"></div>
+        <div class="form-group"><label>Téléphone</label><input type="text" id="telephone" placeholder="ex: +1 613 555 0100"></div>
+      </div>
+    </form>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="save()">Enregistrer</button>
+  </div>
+</dialog>
+
+<script src="js/shared.js"></script>
+<script>
+  async function load() {
+    const rows = await apiFetch('/api/chaines');
+    const tbody = document.getElementById('table-body');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucune chaîne.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(c => `
+      <tr>
+        <td>${c.id_chaine}</td>
+        <td>${c.nom_chaine}</td>
+        <td>${c.adr_siege}</td>
+        <td>${c.email || '—'}</td>
+        <td>${c.telephone || '—'}</td>
+        <td>${c.nb_hotel}</td>
+        <td><div class="actions-cell">
+          <button class="btn btn-primary btn-sm" onclick='openModal(${JSON.stringify(c)})'>Modifier</button>
+          <button class="btn btn-danger btn-sm" onclick="del(${c.id_chaine})">Supprimer</button>
+        </div></td>
+      </tr>`).join('');
+  }
+
+  function openModal(c = null) {
+    document.getElementById('modal-title').textContent = c ? 'Modifier la chaîne' : 'Ajouter une chaîne';
+    document.getElementById('edit-id').value = c?.id_chaine || '';
+    document.getElementById('nom_chaine').value = c?.nom_chaine || '';
+    document.getElementById('adr_siege').value = c?.adr_siege || '';
+    document.getElementById('email').value = c?.email || '';
+    document.getElementById('telephone').value = c?.telephone || '';
+    document.getElementById('modal').showModal();
+  }
+  function closeModal() { document.getElementById('modal').close(); }
+
+  async function save() {
+    const id = document.getElementById('edit-id').value;
+    const body = {
+      nom_chaine: document.getElementById('nom_chaine').value,
+      adr_siege: document.getElementById('adr_siege').value,
+      email: document.getElementById('email').value || null,
+      telephone: document.getElementById('telephone').value || null,
+    };
+    try {
+      if (id) await apiFetch(`/api/chaines/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+      else    await apiFetch('/api/chaines', { method: 'POST', body: JSON.stringify(body) });
+      showToast('Chaîne enregistrée !');
+      closeModal();
+      load();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function del(id) {
+    if (!confirm('Supprimer cette chaîne ? Tous ses hôtels seront aussi supprimés.')) return;
+    try {
+      await apiFetch(`/api/chaines/${id}`, { method: 'DELETE' });
+      showToast('Chaîne supprimée.');
+      load();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  load();
+</script>
+</body>
+</html>

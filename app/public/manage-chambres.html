@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Chambres – e-Hôtels</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .commodites-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .commodite-check {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #fff;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .commodite-check:has(input:checked) {
+      border-color: var(--gold);
+      background: var(--gold-muted);
+    }
+    .commodite-check input { cursor: pointer; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">eH</div>
+      <span class="brand-name">e-Hôtels</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><span class="icon">⌂</span> Accueil</a>
+      <div class="nav-section">Opérations</div>
+      <a href="search.html"><span class="icon">◎</span> Recherche</a>
+      <a href="reservations.html"><span class="icon">◫</span> Réservations</a>
+      <a href="locations.html"><span class="icon">⊡</span> Locations</a>
+      <div class="nav-section">Administration</div>
+      <a href="manage-clients.html"><span class="icon">◯</span> Clients</a>
+      <a href="manage-employes.html"><span class="icon">◯</span> Employés</a>
+      <a href="manage-chaines.html"><span class="icon">◯</span> Chaînes</a>
+      <a href="manage-hotels.html"><span class="icon">◯</span> Hôtels</a>
+      <a href="manage-chambres.html" class="active"><span class="icon">◯</span> Chambres</a>
+      <div class="nav-section">Statistiques</div>
+      <a href="vues.html"><span class="icon">◈</span> Vues SQL</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="page">
+      <div class="top-bar">
+        <div>
+          <h1>Gestion des chambres</h1>
+          <p class="page-subtitle">Gérer les chambres et leurs caractéristiques.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal()">+ Ajouter une chambre</button>
+      </div>
+      <div class="card">
+        <div class="form-group" style="max-width:280px;margin-bottom:0;">
+          <label>Filtrer par hôtel</label>
+          <select id="filter-hotel" onchange="load()"></select>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Hôtel</th><th>#</th><th>Capacité</th><th>Prix</th><th>Superficie</th><th>Vue</th><th>Commodités</th><th>État</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="table-body">
+              <tr><td colspan="9" class="empty">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<dialog id="modal">
+  <div class="modal-header">
+    <h2 id="modal-title">Ajouter une chambre</h2>
+    <button class="modal-close" onclick="closeModal()">×</button>
+  </div>
+  <div class="modal-body">
+    <form id="modal-form">
+      <input type="hidden" id="edit-hotel">
+      <input type="hidden" id="edit-num">
+      <div class="form-grid">
+        <div class="form-group"><label>Hôtel</label><select id="id_hotel" required></select></div>
+        <div class="form-group"><label>Numéro de chambre</label><input type="number" id="num_chambre" required min="1"></div>
+        <div class="form-group">
+          <label>Capacité</label>
+          <select id="capacite" required>
+            <option value="">--</option>
+            <option value="simple">Simple</option>
+            <option value="double">Double</option>
+            <option value="triple">Triple</option>
+            <option value="suite">Suite</option>
+            <option value="familiale">Familiale</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Prix ($/nuit)</label><input type="number" id="prix" required min="1" step="0.01"></div>
+        <div class="form-group"><label>Superficie (m²)</label><input type="number" id="superficie" required min="1"></div>
+        <div class="form-group"><label>Vue</label><input type="text" id="vue" required placeholder="ex: mer, ville"></div>
+        <div class="form-group">
+          <label>État</label>
+          <select id="etat" required>
+            <option value="disponible">Disponible</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="hors service">Hors service</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Lit supplémentaire</label>
+          <select id="poss_ajout_lit">
+            <option value="true">Oui</option>
+            <option value="false">Non</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:14px;">
+        <label>Commodités</label>
+        <div class="commodites-grid" id="commodites-grid">
+          <!-- populated by JS -->
+        </div>
+      </div>
+    </form>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="save()">Enregistrer</button>
+  </div>
+</dialog>
+
+<script src="js/shared.js"></script>
+<script>
+  let allCommodites = [];
+
+  async function initCommodites() {
+    allCommodites = await apiFetch('/api/chambres/commodites');
+    const grid = document.getElementById('commodites-grid');
+    grid.innerHTML = allCommodites.map(c => `
+      <label class="commodite-check">
+        <input type="checkbox" value="${c.nom}" id="com_${c.id_commodite}">
+        ${c.nom}
+      </label>`).join('');
+  }
+
+  function getSelectedCommodites() {
+    return allCommodites
+      .filter(c => document.getElementById(`com_${c.id_commodite}`)?.checked)
+      .map(c => c.nom);
+  }
+
+  function setSelectedCommodites(names) {
+    allCommodites.forEach(c => {
+      const el = document.getElementById(`com_${c.id_commodite}`);
+      if (el) el.checked = names.includes(c.nom);
+    });
+  }
+
+  async function initFilter() {
+    await populateSelect('filter-hotel', '/api/hotels', 'id_hotel', 'nom_hotel', 'Tous les hôtels');
+  }
+
+  async function load() {
+    const id_hotel = document.getElementById('filter-hotel').value;
+    const url = '/api/chambres' + (id_hotel ? `?id_hotel=${id_hotel}` : '');
+    const rows = await apiFetch(url);
+    const tbody = document.getElementById('table-body');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Aucune chambre.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(c => `
+      <tr>
+        <td>${c.nom_hotel}</td><td>${c.num_chambre}</td><td>${c.capacite}</td>
+        <td>$${parseFloat(c.prix).toFixed(2)}</td><td>${c.superficie} m²</td>
+        <td>${c.vue}</td>
+        <td>${c.commodites && c.commodites.length ? c.commodites.join(', ') : '—'}</td>
+        <td>${c.etat}</td>
+        <td><div class="actions-cell">
+          <button class="btn btn-primary btn-sm" onclick='openModal(${JSON.stringify(c)})'>Modifier</button>
+          <button class="btn btn-danger btn-sm" onclick="del(${c.id_hotel},${c.num_chambre})">Supprimer</button>
+        </div></td>
+      </tr>`).join('');
+  }
+
+  async function openModal(c = null) {
+    await populateSelect('id_hotel', '/api/hotels', 'id_hotel', 'nom_hotel', '-- Sélectionner un hôtel --');
+    const isEdit = c !== null;
+    document.getElementById('modal-title').textContent = isEdit ? 'Modifier la chambre' : 'Ajouter une chambre';
+    document.getElementById('edit-hotel').value = c?.id_hotel || '';
+    document.getElementById('edit-num').value = c?.num_chambre || '';
+    document.getElementById('id_hotel').value = c?.id_hotel || '';
+    document.getElementById('id_hotel').disabled = isEdit;
+    document.getElementById('num_chambre').value = c?.num_chambre || '';
+    document.getElementById('num_chambre').disabled = isEdit;
+    document.getElementById('capacite').value = c?.capacite || '';
+    document.getElementById('prix').value = c?.prix || '';
+    document.getElementById('superficie').value = c?.superficie || '';
+    document.getElementById('vue').value = c?.vue || '';
+    document.getElementById('etat').value = c?.etat || 'disponible';
+    document.getElementById('poss_ajout_lit').value = c?.poss_ajout_lit ? 'true' : 'false';
+    setSelectedCommodites(c?.commodites || []);
+    document.getElementById('modal').showModal();
+  }
+  function closeModal() { document.getElementById('modal').close(); }
+
+  async function save() {
+    const editHotel = document.getElementById('edit-hotel').value;
+    const editNum   = document.getElementById('edit-num').value;
+    const body = {
+      id_hotel:       document.getElementById('id_hotel').value,
+      num_chambre:    document.getElementById('num_chambre').value,
+      prix:           document.getElementById('prix').value,
+      capacite:       document.getElementById('capacite').value,
+      superficie:     document.getElementById('superficie').value,
+      vue:            document.getElementById('vue').value,
+      etat:           document.getElementById('etat').value,
+      poss_ajout_lit: document.getElementById('poss_ajout_lit').value === 'true',
+      commodites:     getSelectedCommodites(),
+    };
+    try {
+      if (editHotel && editNum) {
+        await apiFetch(`/api/chambres/${editHotel}/${editNum}`, { method: 'PUT', body: JSON.stringify(body) });
+      } else {
+        await apiFetch('/api/chambres', { method: 'POST', body: JSON.stringify(body) });
+      }
+      showToast('Chambre enregistrée !');
+      closeModal();
+      load();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function del(id_hotel, num) {
+    if (!confirm('Supprimer cette chambre ?')) return;
+    try {
+      await apiFetch(`/api/chambres/${id_hotel}/${num}`, { method: 'DELETE' });
+      showToast('Chambre supprimée.');
+      load();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  Promise.all([initFilter(), initCommodites()]).then(load);
+</script>
+</body>
+</html>

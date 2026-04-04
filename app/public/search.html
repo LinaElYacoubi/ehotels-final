@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Recherche – e-Hôtels</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">eH</div>
+      <span class="brand-name">e-Hôtels</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><span class="icon">⌂</span> Accueil</a>
+      <div class="nav-section">Opérations</div>
+      <a href="search.html" class="active"><span class="icon">◎</span> Recherche</a>
+      <a href="reservations.html"><span class="icon">◫</span> Réservations</a>
+      <a href="locations.html"><span class="icon">⊡</span> Locations</a>
+      <div class="nav-section">Administration</div>
+      <a href="manage-clients.html"><span class="icon">◯</span> Clients</a>
+      <a href="manage-employes.html"><span class="icon">◯</span> Employés</a>
+      <a href="manage-chaines.html"><span class="icon">◯</span> Chaînes</a>
+      <a href="manage-hotels.html"><span class="icon">◯</span> Hôtels</a>
+      <a href="manage-chambres.html"><span class="icon">◯</span> Chambres</a>
+      <div class="nav-section">Statistiques</div>
+      <a href="vues.html"><span class="icon">◈</span> Vues SQL</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="page">
+      <h1>Recherche de chambres</h1>
+      <p class="page-subtitle">Trouvez une chambre disponible selon vos critères.</p>
+      <div class="card">
+        <form id="search-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Date d'arrivée</label>
+              <input type="date" id="date_debut" name="date_debut">
+            </div>
+            <div class="form-group">
+              <label>Date de départ</label>
+              <input type="date" id="date_fin" name="date_fin">
+            </div>
+            <div class="form-group">
+              <label>Capacité</label>
+              <select id="capacite" name="capacite">
+                <option value="">Toutes</option>
+                <option value="simple">Simple</option>
+                <option value="double">Double</option>
+                <option value="triple">Triple</option>
+                <option value="suite">Suite</option>
+                <option value="familiale">Familiale</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Superficie min. (m²)</label>
+              <input type="number" id="superficie_min" name="superficie_min" min="1" placeholder="ex: 20">
+            </div>
+            <div class="form-group">
+              <label>Chaîne hôtelière</label>
+              <select id="id_chaine" name="id_chaine"></select>
+            </div>
+            <div class="form-group">
+              <label>Catégorie (étoiles)</label>
+              <select id="categorie" name="categorie">
+                <option value="">Toutes</option>
+                <option value="1">★</option>
+                <option value="2">★★</option>
+                <option value="3">★★★</option>
+                <option value="4">★★★★</option>
+                <option value="5">★★★★★</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Zone</label>
+              <select id="zone" name="zone"></select>
+            </div>
+            <div class="form-group">
+              <label>Prix max ($/nuit)</label>
+              <input type="number" id="prix_max" name="prix_max" min="1" placeholder="ex: 200">
+            </div>
+            <div class="form-group">
+              <label>Nb. chambres min. (hôtel)</label>
+              <input type="number" id="nb_chambres_min" name="nb_chambres_min" min="1" placeholder="ex: 10">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Rechercher</button>
+        </form>
+      </div>
+
+      <div id="results-count" style="margin-bottom:12px;color:var(--muted);font-size:0.875rem;"></div>
+      <div id="results" class="results-grid"></div>
+    </div>
+  </div>
+</div>
+
+<script src="js/shared.js"></script>
+<script>
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('date_debut').min = today;
+  document.getElementById('date_fin').min = today;
+
+  document.getElementById('date_debut').addEventListener('change', e => {
+    document.getElementById('date_fin').min = e.target.value;
+  });
+
+  populateSelect('id_chaine', '/api/chaines', 'id_chaine', 'nom_chaine', 'Toutes les chaînes');
+
+  (async () => {
+    const zones = await apiFetch('/api/search/zones');
+    const sel = document.getElementById('zone');
+    sel.innerHTML = '<option value="">Toutes les zones</option>';
+    zones.forEach(z => {
+      const o = document.createElement('option');
+      o.value = z; o.textContent = z;
+      sel.appendChild(o);
+    });
+  })();
+
+  document.getElementById('search-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    ['date_debut','date_fin','capacite','superficie_min','id_chaine','categorie','zone','prix_max','nb_chambres_min'].forEach(k => {
+      const v = document.getElementById(k).value;
+      if (v) params.append(k, v);
+    });
+    try {
+      const rooms = await apiFetch('/api/search/chambres?' + params.toString());
+      renderResults(rooms, params);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
+
+  function stars(n) {
+    return '★'.repeat(n) + '☆'.repeat(5-n);
+  }
+
+  function renderResults(rooms, params) {
+    const container = document.getElementById('results');
+    const count = document.getElementById('results-count');
+    count.textContent = `${rooms.length} chambre(s) trouvée(s)`;
+    if (!rooms.length) {
+      container.innerHTML = '<p class="empty">Aucune chambre disponible pour ces critères.</p>';
+      return;
+    }
+    container.innerHTML = rooms.map(r => {
+      const query = `id_hotel=${r.id_hotel}&num_chambre=${r.num_chambre}&` + params.toString();
+      return `
+        <div class="room-card">
+          <h3>${r.nom_hotel}</h3>
+          <div class="meta"><span class="stars">${stars(r.categorie)}</span> · ${r.zone} · ${r.nom_chaine}</div>
+          <div class="price">$${parseFloat(r.prix).toFixed(2)}<span style="font-size:0.8rem;font-weight:400;color:var(--muted)">/nuit</span></div>
+          <div class="meta">Chambre #${r.num_chambre} · ${r.capacite} · ${r.superficie} m²</div>
+          <div class="meta">Vue: ${r.vue} · Lit supplémentaire: ${r.poss_ajout_lit ? 'Oui' : 'Non'}</div>
+          <div class="actions">
+            <a href="reservation.html?${query}" class="btn btn-primary btn-sm">Réserver</a>
+            <a href="location-direct.html?${query}" class="btn btn-success btn-sm">Louer directement</a>
+          </div>
+        </div>`;
+    }).join('');
+  }
+</script>
+</body>
+</html>

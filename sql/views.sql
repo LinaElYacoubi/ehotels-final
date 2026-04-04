@@ -1,8 +1,8 @@
 -- VUE 1 : Nombre de chambres disponibles par zone
--- Affiche le nombre de chambres actuellement disponibles (non réservées / non louées)
--- dans chaque zone géographique.
+-- Affiche le nombre de chambres actuellement disponibles (non réservées / non louées)  dans chaque zone géographique.
 -- Une chambre est considérée indisponible si elle a une RESERVATION ou LOCATION active
--- dont les dates chevauchent la date d'aujourd'hui.
+-- dou les dates incluent la date d'aujourd'hui.
+
 CREATE OR REPLACE VIEW vue_chambres_disponibles_par_zone AS
 SELECT
     h.zone,
@@ -28,7 +28,7 @@ ORDER BY h.zone;
 
 
 -- VUE 2 : Capacité totale des chambres par hôtel
--- Affiche le nombre total de chambres par hôtel, avec une décomposition par type de capacité.
+-- Affiche le nombre total de chambres par hôtel, en décomposition par le type de capacité.
 CREATE OR REPLACE VIEW vue_capacite_par_hotel AS
 SELECT
     h.id_hotel,

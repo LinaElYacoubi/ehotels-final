@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Location directe – e-Hôtels</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">eH</div>
+      <span class="brand-name">e-Hôtels</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><span class="icon">⌂</span> Accueil</a>
+      <div class="nav-section">Opérations</div>
+      <a href="search.html"><span class="icon">◎</span> Recherche</a>
+      <a href="reservations.html"><span class="icon">◫</span> Réservations</a>
+      <a href="locations.html" class="active"><span class="icon">⊡</span> Locations</a>
+      <div class="nav-section">Administration</div>
+      <a href="manage-clients.html"><span class="icon">◯</span> Clients</a>
+      <a href="manage-employes.html"><span class="icon">◯</span> Employés</a>
+      <a href="manage-chaines.html"><span class="icon">◯</span> Chaînes</a>
+      <a href="manage-hotels.html"><span class="icon">◯</span> Hôtels</a>
+      <a href="manage-chambres.html"><span class="icon">◯</span> Chambres</a>
+      <div class="nav-section">Statistiques</div>
+      <a href="vues.html"><span class="icon">◈</span> Vues SQL</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="page">
+      <h1>Location directe</h1>
+      <p class="page-subtitle">Enregistrer un séjour sans réservation préalable.</p>
+      <div class="card" id="room-info"></div>
+      <div class="card">
+        <form id="location-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Client</label>
+              <select id="id_client" required></select>
+            </div>
+            <div class="form-group">
+              <label>Date d'arrivée</label>
+              <input type="date" id="date_debut" required>
+            </div>
+            <div class="form-group">
+              <label>Date de départ</label>
+              <input type="date" id="date_fin" required>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:8px;">
+            <button type="submit" class="btn btn-success">Confirmer la location</button>
+            <a href="search.html" class="btn btn-outline">Annuler</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/shared.js"></script>
+<script>
+  const p = new URLSearchParams(window.location.search);
+  const id_hotel = p.get('id_hotel');
+  const num_chambre = p.get('num_chambre');
+
+  (async () => {
+    if (id_hotel && num_chambre) {
+      const room = await apiFetch(`/api/chambres/${id_hotel}/${num_chambre}`);
+      const hotel = await apiFetch(`/api/hotels/${id_hotel}`);
+      document.getElementById('room-info').innerHTML = `
+        <h2>${hotel.nom_hotel} — Chambre #${room.num_chambre}</h2>
+        <p style="color:var(--muted);margin-top:6px;">${room.capacite} · ${room.superficie} m² · Vue: ${room.vue} · <strong style="color:var(--success)">$${parseFloat(room.prix).toFixed(2)}/nuit</strong></p>
+      `;
+      if (p.get('date_debut')) document.getElementById('date_debut').value = p.get('date_debut');
+      if (p.get('date_fin'))   document.getElementById('date_fin').value   = p.get('date_fin');
+    }
+  })();
+
+  (async () => {
+    const clients = await apiFetch('/api/clients');
+    const sel = document.getElementById('id_client');
+    sel.innerHTML = '<option value="">-- Sélectionner un client --</option>';
+    clients.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.id_client;
+      o.textContent = `${c.prenom} ${c.nom}`;
+      sel.appendChild(o);
+    });
+  })();
+
+  document.getElementById('location-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    try {
+      await apiFetch('/api/locations', {
+        method: 'POST',
+        body: JSON.stringify({
+          id_client: document.getElementById('id_client').value,
+          id_hotel,
+          num_chambre,
+          date_debut: document.getElementById('date_debut').value,
+          date_fin: document.getElementById('date_fin').value,
+        })
+      });
+      showToast('Location créée !');
+      setTimeout(() => window.location.href = 'locations.html', 1500);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
+</script>
+</body>
+</html>

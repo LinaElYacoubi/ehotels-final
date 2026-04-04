@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Réservations – e-Hôtels</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">eH</div>
+      <span class="brand-name">e-Hôtels</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><span class="icon">⌂</span> Accueil</a>
+      <div class="nav-section">Opérations</div>
+      <a href="search.html"><span class="icon">◎</span> Recherche</a>
+      <a href="reservations.html" class="active"><span class="icon">◫</span> Réservations</a>
+      <a href="locations.html"><span class="icon">⊡</span> Locations</a>
+      <div class="nav-section">Administration</div>
+      <a href="manage-clients.html"><span class="icon">◯</span> Clients</a>
+      <a href="manage-employes.html"><span class="icon">◯</span> Employés</a>
+      <a href="manage-chaines.html"><span class="icon">◯</span> Chaînes</a>
+      <a href="manage-hotels.html"><span class="icon">◯</span> Hôtels</a>
+      <a href="manage-chambres.html"><span class="icon">◯</span> Chambres</a>
+      <div class="nav-section">Statistiques</div>
+      <a href="vues.html"><span class="icon">◈</span> Vues SQL</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="page">
+      <div class="top-bar">
+        <div>
+          <h1>Réservations</h1>
+          <p class="page-subtitle">Gérer les réservations et effectuer les check-ins.</p>
+        </div>
+        <a href="search.html" class="btn btn-success">+ Nouvelle réservation</a>
+      </div>
+      <div class="card">
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="form-group">
+            <label>Filtrer par statut</label>
+            <select id="filter-statut">
+              <option value="">Tous</option>
+              <option value="confirmee">Confirmée</option>
+              <option value="annulee">Annulée</option>
+              <option value="convertie">Convertie</option>
+            </select>
+          </div>
+          <button class="btn btn-outline" onclick="loadReservations()">Actualiser</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Client</th><th>Hôtel</th><th>Chambre</th>
+                <th>Arrivée</th><th>Départ</th><th>Statut</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="reservations-body">
+              <tr><td colspan="8" class="empty">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/shared.js"></script>
+<script>
+  function statusBadge(s) {
+    const map = { confirmee:'badge-green', annulee:'badge-red', convertie:'badge-grey' };
+    return `<span class="badge ${map[s]||'badge-grey'}">${s}</span>`;
+  }
+
+  async function loadReservations() {
+    const statut = document.getElementById('filter-statut').value;
+    const url = '/api/reservations' + (statut ? `?statut=${statut}` : '');
+    try {
+      const rows = await apiFetch(url);
+      const tbody = document.getElementById('reservations-body');
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">Aucune réservation trouvée.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.id_reservation}</td>
+          <td>${r.client_nom}</td>
+          <td>${r.nom_hotel || '—'}</td>
+          <td>${r.num_chambre || '—'}</td>
+          <td>${r.date_debut}</td>
+          <td>${r.date_fin}</td>
+          <td>${statusBadge(r.statut)}</td>
+          <td>
+            <div class="actions-cell">
+              ${r.statut === 'confirmee' ? `
+                <button class="btn btn-success btn-sm" onclick="convertReservation(${r.id_reservation})">Check-in</button>
+                <button class="btn btn-danger btn-sm" onclick="cancelReservation(${r.id_reservation})">Annuler</button>
+              ` : ''}
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function convertReservation(id) {
+    if (!confirm('Confirmer le check-in ? La réservation sera convertie en location.')) return;
+    try {
+      await apiFetch(`/api/reservations/${id}/convert`, { method: 'POST' });
+      showToast('Réservation convertie en location !');
+      loadReservations();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function cancelReservation(id) {
+    if (!confirm('Annuler cette réservation ?')) return;
+    try {
+      await apiFetch(`/api/reservations/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ statut: 'annulee', date_debut: null, date_fin: null })
+      });
+      showToast('Réservation annulée.');
+      loadReservations();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  document.getElementById('filter-statut').addEventListener('change', loadReservations);
+  loadReservations();
+</script>
+</body>
+</html>

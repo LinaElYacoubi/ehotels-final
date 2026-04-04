@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Employés – e-Hôtels</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">eH</div>
+      <span class="brand-name">e-Hôtels</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><span class="icon">⌂</span> Accueil</a>
+      <div class="nav-section">Opérations</div>
+      <a href="search.html"><span class="icon">◎</span> Recherche</a>
+      <a href="reservations.html"><span class="icon">◫</span> Réservations</a>
+      <a href="locations.html"><span class="icon">⊡</span> Locations</a>
+      <div class="nav-section">Administration</div>
+      <a href="manage-clients.html"><span class="icon">◯</span> Clients</a>
+      <a href="manage-employes.html" class="active"><span class="icon">◯</span> Employés</a>
+      <a href="manage-chaines.html"><span class="icon">◯</span> Chaînes</a>
+      <a href="manage-hotels.html"><span class="icon">◯</span> Hôtels</a>
+      <a href="manage-chambres.html"><span class="icon">◯</span> Chambres</a>
+      <div class="nav-section">Statistiques</div>
+      <a href="vues.html"><span class="icon">◈</span> Vues SQL</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="page">
+      <div class="top-bar">
+        <div>
+          <h1>Gestion des employés</h1>
+          <p class="page-subtitle">Gérer le personnel des hôtels.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal()">+ Ajouter un employé</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Nom</th><th>Prénom</th><th>Hôtel</th><th>Rôle</th><th>NAS</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="table-body">
+              <tr><td colspan="7" class="empty">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<dialog id="modal">
+  <div class="modal-header">
+    <h2 id="modal-title">Ajouter un employé</h2>
+    <button class="modal-close" onclick="closeModal()">×</button>
+  </div>
+  <div class="modal-body">
+    <form id="modal-form">
+      <input type="hidden" id="edit-id">
+      <div class="form-grid">
+        <div class="form-group"><label>Nom</label><input type="text" id="nom" required></div>
+        <div class="form-group"><label>Prénom</label><input type="text" id="prenom" required></div>
+        <div class="form-group" style="grid-column:span 2"><label>Adresse</label><input type="text" id="adresse" required></div>
+        <div class="form-group"><label>NAS</label><input type="text" id="nas" required></div>
+        <div class="form-group">
+          <label>Rôle</label>
+          <select id="role" required>
+            <option value="">-- Sélectionner --</option>
+            <option value="gestionnaire">Gestionnaire</option>
+            <option value="receptionniste">Réceptionniste</option>
+            <option value="menage">Ménage</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="concierge">Concierge</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column:span 2">
+          <label>Hôtel</label>
+          <select id="id_hotel" required></select>
+        </div>
+      </div>
+    </form>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="save()">Enregistrer</button>
+  </div>
+</dialog>
+
+<script src="js/shared.js"></script>
+<script>
+  async function load() {
+    const rows = await apiFetch('/api/employes');
+    const tbody = document.getElementById('table-body');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucun employé.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(e => `
+      <tr>
+        <td>${e.id_employe}</td><td>${e.nom}</td><td>${e.prenom}</td>
+        <td>${e.nom_hotel}</td><td>${e.role}</td><td>${e.nas}</td>
+        <td><div class="actions-cell">
+          <button class="btn btn-primary btn-sm" onclick='openModal(${JSON.stringify(e)})'>Modifier</button>
+          <button class="btn btn-danger btn-sm" onclick="del(${e.id_employe})">Supprimer</button>
+        </div></td>
+      </tr>`).join('');
+  }
+
+  async function openModal(e = null) {
+    await populateSelect('id_hotel', '/api/hotels', 'id_hotel', 'nom_hotel', '-- Sélectionner un hôtel --');
+    document.getElementById('modal-title').textContent = e ? 'Modifier l\'employé' : 'Ajouter un employé';
+    document.getElementById('edit-id').value = e?.id_employe || '';
+    document.getElementById('nom').value = e?.nom || '';
+    document.getElementById('prenom').value = e?.prenom || '';
+    document.getElementById('adresse').value = e?.adresse || '';
+    document.getElementById('nas').value = e?.nas || '';
+    document.getElementById('role').value = e?.role || '';
+    document.getElementById('id_hotel').value = e?.id_hotel || '';
+    document.getElementById('modal').showModal();
+  }
+  function closeModal() { document.getElementById('modal').close(); }
+
+  async function save() {
+    const id = document.getElementById('edit-id').value;
+    const body = {
+      nom: document.getElementById('nom').value,
+      prenom: document.getElementById('prenom').value,
+      adresse: document.getElementById('adresse').value,
+      nas: document.getElementById('nas').value,
+      role: document.getElementById('role').value,
+      id_hotel: document.getElementById('id_hotel').value,
+    };
+    try {
+      if (id) await apiFetch(`/api/employes/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+      else    await apiFetch('/api/employes', { method: 'POST', body: JSON.stringify(body) });
+      showToast('Employé enregistré !');
+      closeModal();
+      load();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function del(id) {
+    if (!confirm('Supprimer cet employé ?')) return;
+    try {
+      await apiFetch(`/api/employes/${id}`, { method: 'DELETE' });
+      showToast('Employé supprimé.');
+      load();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  load();
+</script>
+</body>
+</html>

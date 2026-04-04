@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Clients – e-Hôtels</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">eH</div>
+      <span class="brand-name">e-Hôtels</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><span class="icon">⌂</span> Accueil</a>
+      <div class="nav-section">Opérations</div>
+      <a href="search.html"><span class="icon">◎</span> Recherche</a>
+      <a href="reservations.html"><span class="icon">◫</span> Réservations</a>
+      <a href="locations.html"><span class="icon">⊡</span> Locations</a>
+      <div class="nav-section">Administration</div>
+      <a href="manage-clients.html" class="active"><span class="icon">◯</span> Clients</a>
+      <a href="manage-employes.html"><span class="icon">◯</span> Employés</a>
+      <a href="manage-chaines.html"><span class="icon">◯</span> Chaînes</a>
+      <a href="manage-hotels.html"><span class="icon">◯</span> Hôtels</a>
+      <a href="manage-chambres.html"><span class="icon">◯</span> Chambres</a>
+      <div class="nav-section">Statistiques</div>
+      <a href="vues.html"><span class="icon">◈</span> Vues SQL</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="page">
+      <div class="top-bar">
+        <div>
+          <h1>Gestion des clients</h1>
+          <p class="page-subtitle">Ajouter, modifier ou supprimer des clients.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openModal()">+ Ajouter un client</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>ID</th><th>Nom</th><th>Prénom</th><th>Adresse</th><th>NAS</th><th>Inscription</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="table-body">
+              <tr><td colspan="7" class="empty">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<dialog id="modal">
+  <div class="modal-header">
+    <h2 id="modal-title">Ajouter un client</h2>
+    <button class="modal-close" onclick="closeModal()">×</button>
+  </div>
+  <div class="modal-body">
+    <form id="modal-form">
+      <input type="hidden" id="edit-id">
+      <div class="form-grid">
+        <div class="form-group"><label>Nom</label><input type="text" id="nom" required></div>
+        <div class="form-group"><label>Prénom</label><input type="text" id="prenom" required></div>
+        <div class="form-group" style="grid-column:span 2"><label>Adresse</label><input type="text" id="adresse" required></div>
+        <div class="form-group"><label>NAS</label><input type="text" id="nas" required></div>
+        <div class="form-group"><label>Date d'inscription</label><input type="date" id="date_inscription" required></div>
+      </div>
+    </form>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" onclick="closeModal()">Annuler</button>
+    <button class="btn btn-primary" onclick="saveClient()">Enregistrer</button>
+  </div>
+</dialog>
+
+<script src="js/shared.js"></script>
+<script>
+  async function load() {
+    const rows = await apiFetch('/api/clients');
+    const tbody = document.getElementById('table-body');
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucun client.</td></tr>'; return; }
+    tbody.innerHTML = rows.map(c => `
+      <tr>
+        <td>${c.id_client}</td><td>${c.nom}</td><td>${c.prenom}</td>
+        <td>${c.adresse}</td><td>${c.nas}</td><td>${c.date_inscription?.split('T')[0]}</td>
+        <td><div class="actions-cell">
+          <button class="btn btn-primary btn-sm" onclick='editClient(${JSON.stringify(c)})'>Modifier</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteClient(${c.id_client})">Supprimer</button>
+        </div></td>
+      </tr>`).join('');
+  }
+
+  function openModal(c = null) {
+    document.getElementById('modal-title').textContent = c ? 'Modifier le client' : 'Ajouter un client';
+    document.getElementById('edit-id').value = c?.id_client || '';
+    document.getElementById('nom').value = c?.nom || '';
+    document.getElementById('prenom').value = c?.prenom || '';
+    document.getElementById('adresse').value = c?.adresse || '';
+    document.getElementById('nas').value = c?.nas || '';
+    document.getElementById('date_inscription').value = c?.date_inscription?.split('T')[0] || '';
+    document.getElementById('modal').showModal();
+  }
+  function editClient(c) { openModal(c); }
+  function closeModal() { document.getElementById('modal').close(); }
+
+  async function saveClient() {
+    const id = document.getElementById('edit-id').value;
+    const body = {
+      nom: document.getElementById('nom').value,
+      prenom: document.getElementById('prenom').value,
+      adresse: document.getElementById('adresse').value,
+      nas: document.getElementById('nas').value,
+      date_inscription: document.getElementById('date_inscription').value,
+    };
+    try {
+      if (id) await apiFetch(`/api/clients/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+      else    await apiFetch('/api/clients', { method: 'POST', body: JSON.stringify(body) });
+      showToast('Client enregistré !');
+      closeModal();
+      load();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  async function deleteClient(id) {
+    if (!confirm('Supprimer ce client ?')) return;
+    try {
+      await apiFetch(`/api/clients/${id}`, { method: 'DELETE' });
+      showToast('Client supprimé.');
+      load();
+    } catch (err) { showToast(err.message, 'error'); }
+  }
+
+  load();
+</script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Locations – e-Hôtels</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">eH</div>
+      <span class="brand-name">e-Hôtels</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><span class="icon">⌂</span> Accueil</a>
+      <div class="nav-section">Opérations</div>
+      <a href="search.html"><span class="icon">◎</span> Recherche</a>
+      <a href="reservations.html"><span class="icon">◫</span> Réservations</a>
+      <a href="locations.html" class="active"><span class="icon">⊡</span> Locations</a>
+      <div class="nav-section">Administration</div>
+      <a href="manage-clients.html"><span class="icon">◯</span> Clients</a>
+      <a href="manage-employes.html"><span class="icon">◯</span> Employés</a>
+      <a href="manage-chaines.html"><span class="icon">◯</span> Chaînes</a>
+      <a href="manage-hotels.html"><span class="icon">◯</span> Hôtels</a>
+      <a href="manage-chambres.html"><span class="icon">◯</span> Chambres</a>
+      <div class="nav-section">Statistiques</div>
+      <a href="vues.html"><span class="icon">◈</span> Vues SQL</a>
+    </nav>
+  </aside>
+  <div class="main">
+    <div class="page">
+      <div class="top-bar">
+        <div>
+          <h1>Locations</h1>
+          <p class="page-subtitle">Locations en cours et historique des séjours.</p>
+        </div>
+        <a href="search.html" class="btn btn-success">+ Location directe</a>
+      </div>
+      <div class="card">
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="form-group">
+            <label>Filtrer par statut</label>
+            <select id="filter-statut">
+              <option value="">Tous</option>
+              <option value="en_cours">En cours</option>
+              <option value="terminee">Terminée</option>
+              <option value="annulee">Annulée</option>
+            </select>
+          </div>
+          <button class="btn btn-outline" onclick="loadLocations()">Actualiser</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>Client</th><th>Hôtel</th><th>Chambre</th>
+                <th>Arrivée</th><th>Départ</th><th>Statut</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="locations-body">
+              <tr><td colspan="8" class="empty">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/shared.js"></script>
+<script>
+  function statusBadge(s) {
+    const map = { en_cours:'badge-green', terminee:'badge-grey', annulee:'badge-red' };
+    return `<span class="badge ${map[s]||'badge-grey'}">${s}</span>`;
+  }
+
+  async function loadLocations() {
+    const statut = document.getElementById('filter-statut').value;
+    const url = '/api/locations' + (statut ? `?statut=${statut}` : '');
+    try {
+      const rows = await apiFetch(url);
+      const tbody = document.getElementById('locations-body');
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="empty">Aucune location trouvée.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.id_location}</td>
+          <td>${r.client_nom}</td>
+          <td>${r.nom_hotel || '—'}</td>
+          <td>${r.num_chambre || '—'}</td>
+          <td>${r.date_debut}</td>
+          <td>${r.date_fin}</td>
+          <td>${statusBadge(r.statut)}</td>
+          <td>
+            <div class="actions-cell">
+              ${r.statut === 'en_cours' ? `
+                <button class="btn btn-warning btn-sm" onclick="checkout(${r.id_location})">Check-out</button>
+              ` : ''}
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  async function checkout(id) {
+    if (!confirm('Confirmer le check-out ?')) return;
+    try {
+      await apiFetch(`/api/locations/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ statut: 'terminee' })
+      });
+      showToast('Check-out effectué.');
+      loadLocations();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  document.getElementById('filter-statut').addEventListener('change', loadLocations);
+  loadLocations();
+</script>
+</body>
+</html>
