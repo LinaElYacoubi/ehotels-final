@@ -1,17 +1,67 @@
 const router = require('express').Router();
 const db = require('../db');
+const { getDbErrorMessage } = require('../utils/dbErrorMessage');
 
 router.get('/', async (req, res, next) => {
   try {
-    const { search } = req.query;
-    let sql = 'SELECT * FROM CLIENT';
+    const {
+      id_client,
+      nom,
+      prenom,
+      nom_complet,
+      nas,
+      date_inscription_min,
+      date_inscription_max
+    } = req.query;
+
     const params = [];
-    if (search) {
-      sql += ' WHERE nom ILIKE $1 OR prenom ILIKE $1';
-      params.push(`%${search}%`);
+    const where = [];
+
+    if (id_client) {
+      where.push(`id_client = $${params.length + 1}`);
+      params.push(parseInt(id_client));
     }
-    sql += ' ORDER BY nom, prenom';
-    const result = await db.query(sql, params);
+
+    if (nom) {
+      where.push(`LOWER(nom) LIKE LOWER($${params.length + 1})`);
+      params.push(`%${nom}%`);
+    }
+
+    if (prenom) {
+      where.push(`LOWER(prenom) LIKE LOWER($${params.length + 1})`);
+      params.push(`%${prenom}%`);
+    }
+
+    if (nom_complet) {
+      where.push(`LOWER(nom || ' ' || prenom) LIKE LOWER($${params.length + 1})`);
+      params.push(`%${nom_complet}%`);
+    }
+
+    if (nas) {
+      where.push(`LOWER(nas) LIKE LOWER($${params.length + 1})`);
+      params.push(`%${nas}%`);
+    }
+
+    if (date_inscription_min) {
+      where.push(`date_inscription >= $${params.length + 1}`);
+      params.push(date_inscription_min);
+    }
+
+    if (date_inscription_max) {
+      where.push(`date_inscription <= $${params.length + 1}`);
+      params.push(date_inscription_max);
+    }
+
+    const result = await db.query(
+      `
+      SELECT *
+      FROM CLIENT
+      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+      ORDER BY id_client
+      `,
+      params
+    );
+
     res.json(result.rows);
   } catch (err) { next(err); }
 });
@@ -21,7 +71,9 @@ router.get('/:id', async (req, res, next) => {
     const result = await db.query('SELECT * FROM CLIENT WHERE id_client=$1', [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Client introuvable' });
     res.json(result.rows[0]);
-  } catch (err) { next(err); }
+    } catch (err) {
+      return res.status(400).json({ error: getDbErrorMessage(err) });
+    }
 });
 
 router.post('/', async (req, res, next) => {
@@ -32,7 +84,9 @@ router.post('/', async (req, res, next) => {
       [nom, prenom, adresse, nas, date_inscription]
     );
     res.status(201).json(result.rows[0]);
-  } catch (err) { next(err); }
+    } catch (err) {
+      return res.status(400).json({ error: getDbErrorMessage(err) });
+    }
 });
 
 router.put('/:id', async (req, res, next) => {
@@ -44,14 +98,18 @@ router.put('/:id', async (req, res, next) => {
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Client introuvable' });
     res.json(result.rows[0]);
-  } catch (err) { next(err); }
+    } catch (err) {
+      return res.status(400).json({ error: getDbErrorMessage(err) });
+    }
 });
 
 router.delete('/:id', async (req, res, next) => {
   try {
     await db.query('DELETE FROM CLIENT WHERE id_client=$1', [req.params.id]);
     res.json({ message: 'Client supprimé' });
-  } catch (err) { next(err); }
+    } catch (err) {
+      return res.status(400).json({ error: getDbErrorMessage(err) });
+    }
 });
 
 module.exports = router;

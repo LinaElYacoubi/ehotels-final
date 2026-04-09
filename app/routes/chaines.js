@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const db = require('../db');
+const { getDbErrorMessage } = require('../utils/dbErrorMessage');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -10,7 +11,9 @@ router.get('/', async (req, res, next) => {
       FROM CHAINE c ORDER BY c.nom_chaine
     `);
     res.json(result.rows);
-  } catch (err) { next(err); }
+    } catch (err) {
+      return res.status(400).json({ error: getDbErrorMessage(err) });
+    }
 });
 
 router.get('/:id', async (req, res, next) => {
@@ -23,7 +26,9 @@ router.get('/:id', async (req, res, next) => {
     `, [req.params.id]);
     if (!result.rows.length) return res.status(404).json({ error: 'Chaîne introuvable' });
     res.json(result.rows[0]);
-  } catch (err) { next(err); }
+    } catch (err) {
+      return res.status(400).json({ error: getDbErrorMessage(err) });
+    }
 });
 
 router.post('/', async (req, res, next) => {
@@ -40,7 +45,7 @@ router.post('/', async (req, res, next) => {
     if (telephone) await client.query('INSERT INTO CHAINE_TELEPHONE(id_chaine,telephone) VALUES($1,$2)', [id, telephone]);
     await client.query('COMMIT');
     res.status(201).json(r.rows[0]);
-  } catch (err) { await client.query('ROLLBACK'); next(err); }
+  } catch (err) { await client.query('ROLLBACK'); return res.status(400).json({ error: getDbErrorMessage(err) }); }
   finally { client.release(); }
 });
 
@@ -60,7 +65,7 @@ router.put('/:id', async (req, res, next) => {
     if (telephone) await client.query('INSERT INTO CHAINE_TELEPHONE(id_chaine,telephone) VALUES($1,$2)', [req.params.id, telephone]);
     await client.query('COMMIT');
     res.json(r.rows[0]);
-  } catch (err) { await client.query('ROLLBACK'); next(err); }
+  } catch (err) { await client.query('ROLLBACK'); return res.status(400).json({ error: getDbErrorMessage(err) }); }
   finally { client.release(); }
 });
 
@@ -68,7 +73,9 @@ router.delete('/:id', async (req, res, next) => {
   try {
     await db.query('DELETE FROM CHAINE WHERE id_chaine=$1', [req.params.id]);
     res.json({ message: 'Chaîne supprimée' });
-  } catch (err) { next(err); }
+    } catch (err) {
+      return res.status(400).json({ error: getDbErrorMessage(err) });
+    }
 });
 
 module.exports = router;

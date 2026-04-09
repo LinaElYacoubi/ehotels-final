@@ -38,6 +38,23 @@
         <button class="btn btn-primary" onclick="openModal()">+ Ajouter un client</button>
       </div>
       <div class="card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>ID client</label>
+            <input type="number" id="f_id_client">
+          </div>
+
+          <div class="form-group">
+            <label>Nom complet</label>
+            <input type="text" id="f_nom_complet" placeholder="Nom ou prénom">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:10px;">
+          <button class="btn btn-primary" onclick="load()">Filtrer</button>
+          <button class="btn btn-outline" onclick="resetFilters()">Réinitialiser</button>
+        </div>
+      </div>
+      <div class="card">
         <div class="table-wrap">
           <table>
             <thead>
@@ -79,9 +96,23 @@
 <script src="js/shared.js"></script>
 <script>
   async function load() {
-    const rows = await apiFetch('/api/clients');
+    const params = new URLSearchParams();
+
+    [
+      ['id_client', 'f_id_client'],
+      ['nom_complet', 'f_nom_complet']
+    ].forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      if (el && el.value) params.append(key, el.value);
+    });
+
+    const rows = await apiFetch('/api/clients' + (params.toString() ? '?' + params.toString() : ''));
     const tbody = document.getElementById('table-body');
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucun client.</td></tr>'; return; }
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucun client.</td></tr>';
+      return;
+    }
+
     tbody.innerHTML = rows.map(c => `
       <tr>
         <td>${c.id_client}</td><td>${c.nom}</td><td>${c.prenom}</td>
@@ -91,6 +122,18 @@
           <button class="btn btn-danger btn-sm" onclick="deleteClient(${c.id_client})">Supprimer</button>
         </div></td>
       </tr>`).join('');
+  }
+
+  function resetFilters() {
+    [
+      'f_id_client',
+      'f_nom_complet'
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+
+    load();
   }
 
   function openModal(c = null) {

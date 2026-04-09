@@ -30,9 +30,13 @@ CREATE TABLE CHAMBRE (
         capacite IN ('simple','double','triple','suite','familiale')
     ),
     superficie INT NOT NULL CHECK (superficie > 0),
-    vue VARCHAR(20) NOT NULL,
-    poss_ajout_lit BOOLEAN,
-    etat VARCHAR(20) NOT NULL,
+    vue VARCHAR(20) NOT NULL CHECK (
+        vue IN ('ville','mer','montagne','jardin','aucune')
+    ),
+    poss_ajout_lit BOOLEAN NOT NULL DEFAULT FALSE,
+    etat VARCHAR(20) NOT NULL CHECK (
+        etat IN ('disponible','occupee','maintenance','endommagee')
+    ),
     PRIMARY KEY (id_hotel, num_chambre),
     FOREIGN KEY (id_hotel)
         REFERENCES HOTEL(id_hotel)
@@ -46,7 +50,7 @@ CREATE TABLE CLIENT (
     prenom VARCHAR(50) NOT NULL,
     adresse TEXT NOT NULL,
     nas VARCHAR(20) UNIQUE NOT NULL,
-    date_inscription DATE NOT NULL
+    date_inscription DATE NOT NULL DEFAULT CURRENT_DATE
 );
 
 -- TABLE EMPLOYE
@@ -57,10 +61,13 @@ CREATE TABLE EMPLOYE (
     prenom VARCHAR(50) NOT NULL,
     adresse TEXT NOT NULL,
     nas VARCHAR(20) UNIQUE NOT NULL,
-    role VARCHAR(30) NOT NULL,
+    role VARCHAR(30) NOT NULL CHECK (
+        role IN ('gestionnaire','receptionniste','menage','maintenance','concierge')
+    ),
     FOREIGN KEY (id_hotel)
         REFERENCES HOTEL(id_hotel)
-        ON DELETE RESTRICT
+        ON DELETE RESTRICT,
+    UNIQUE (id_hotel, id_employe)
 );
 
 -- TABLE RESERVATION
@@ -70,9 +77,13 @@ CREATE TABLE RESERVATION (
     id_hotel INT,
     num_chambre INT,
     date_reservation DATE NOT NULL,
-    date_debut DATE NOT NULL,
+    date_debut DATE NOT NULL CHECK (
+        date_debut < date_fin
+    ),
     date_fin DATE NOT NULL,
-    statut VARCHAR(30) NOT NULL,
+    statut VARCHAR(30) NOT NULL CHECK (
+        statut IN ('confirmee','annulee','convertie')
+    ),
     FOREIGN KEY (id_client)
         REFERENCES CLIENT(id_client),
     FOREIGN KEY (id_hotel, num_chambre)
@@ -81,19 +92,43 @@ CREATE TABLE RESERVATION (
 );
 
 -- TABLE LOCATION
+-- TABLE LOCATION
 CREATE TABLE LOCATION (
     id_location SERIAL PRIMARY KEY,
     id_client INT NOT NULL,
     id_hotel INT,
     num_chambre INT,
+    source_location VARCHAR(30) NOT NULL,
     date_debut DATE NOT NULL,
     date_fin DATE NOT NULL,
+    date_checkin DATE,
+    date_checkout DATE,
+    id_reservation INT UNIQUE,
+    id_employe INT,
     statut VARCHAR(30) NOT NULL,
     FOREIGN KEY (id_client)
         REFERENCES CLIENT(id_client),
     FOREIGN KEY (id_hotel, num_chambre)
         REFERENCES CHAMBRE(id_hotel, num_chambre)
-        ON DELETE SET NULL
+        ON DELETE SET NULL,
+    FOREIGN KEY (id_reservation)
+        REFERENCES RESERVATION(id_reservation)
+        ON DELETE RESTRICT,
+    FOREIGN KEY (id_employe)
+        REFERENCES EMPLOYE(id_employe)
+        ON DELETE SET NULL,
+    CHECK (source_location IN ('directe', 'apres_reservation')),
+    CHECK (statut IN ('en_cours', 'terminee', 'annulee')),
+    CHECK (date_debut < date_fin),
+    CHECK (
+        (source_location = 'directe' AND id_reservation IS NULL)
+        OR
+        (source_location = 'apres_reservation' AND id_reservation IS NOT NULL)
+    ),
+    CHECK (date_checkin IS NULL OR date_checkin >= date_debut),
+    CHECK (date_checkout IS NULL OR date_checkin IS NOT NULL),
+    CHECK (date_checkout IS NULL OR date_checkout > date_checkin),
+    CHECK (date_checkout IS NULL OR date_checkout <= date_fin)
 );
 
 -- Table CHAINE_EMAIL
@@ -128,8 +163,6 @@ CREATE TABLE HOTEL_EMAIL (
         ON DELETE CASCADE
 );
 
-
-
 --TABLE HOTEL-TELEPHONE
 CREATE TABLE HOTEL_TELEPHONE (
     id_hotel INT,
@@ -163,14 +196,13 @@ CREATE TABLE CHAMBRE_COMMODITE (
 
 --TABLE GESTION_HOTEL
 CREATE TABLE GESTION_HOTEL (
-    id_employe INT,
-    id_hotel INT,
+    id_hotel INT PRIMARY KEY,
+    id_employe INT UNIQUE NOT NULL,
     date_debut DATE NOT NULL,
-    PRIMARY KEY (id_employe, id_hotel),
-    FOREIGN KEY (id_employe)
-        REFERENCES EMPLOYE(id_employe)
-        ON DELETE CASCADE,
     FOREIGN KEY (id_hotel)
         REFERENCES HOTEL(id_hotel)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    FOREIGN KEY (id_hotel, id_employe)
+        REFERENCES EMPLOYE(id_hotel, id_employe)
+        ON DELETE RESTRICT
 );

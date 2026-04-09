@@ -58,10 +58,10 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>Hôtel</th><th>Zone</th><th>Cat.</th><th>Total</th><th>Simple</th><th>Double</th><th>Triple</th><th>Suite</th><th>Familiale</th></tr>
+              <tr><th>Hôtel</th><th>Zone</th><th>Total</th></tr>
             </thead>
             <tbody id="capacite-body">
-              <tr><td colspan="9" class="empty">Chargement...</td></tr>
+              <tr><td colspan="3" class="empty">Chargement...</td></tr>
             </tbody>
           </table>
         </div>
@@ -72,8 +72,6 @@
 
 <script src="js/shared.js"></script>
 <script>
-  function stars(n) { return '★'.repeat(n) + '☆'.repeat(5-n); }
-
   async function loadZones() {
     try {
       const rows = await apiFetch('/api/vues/chambres-par-zone');
@@ -95,20 +93,14 @@
       const rows = await apiFetch('/api/vues/capacite-par-hotel');
       const tbody = document.getElementById('capacite-body');
       if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="9" class="empty">Aucune donnée.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="3" class="empty">Aucune donnée.</td></tr>';
         return;
       }
       tbody.innerHTML = rows.map(r => `
         <tr>
           <td>${r.nom_hotel}</td>
           <td>${r.zone}</td>
-          <td><span class="stars">${stars(r.categorie)}</span></td>
-          <td><strong>${r.nb_total_chambres}</strong></td>
-          <td>${r.nb_simple}</td>
-          <td>${r.nb_double}</td>
-          <td>${r.nb_triple}</td>
-          <td>${r.nb_suite}</td>
-          <td>${r.nb_familiale}</td>
+          <td><strong>${r.capacite_totale}</strong></td>
         </tr>`).join('');
     } catch (err) { showToast(err.message, 'error'); }
   }

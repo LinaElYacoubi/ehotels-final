@@ -98,6 +98,7 @@
 
 <script src="js/shared.js"></script>
 <script>
+  const mode = new URLSearchParams(window.location.search).get('mode');
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('date_debut').min = today;
   document.getElementById('date_fin').min = today;
@@ -121,17 +122,15 @@
 
   document.getElementById('search-form').addEventListener('submit', async e => {
     e.preventDefault();
-    const params = new URLSearchParams();
-    ['date_debut','date_fin','capacite','superficie_min','id_chaine','categorie','zone','prix_max','nb_chambres_min'].forEach(k => {
-      const v = document.getElementById(k).value;
-      if (v) params.append(k, v);
-    });
-    try {
-      const rooms = await apiFetch('/api/search/chambres?' + params.toString());
-      renderResults(rooms, params);
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
+    runSearch();
+  });
+
+  ['capacite','id_chaine','categorie','zone','date_debut','date_fin'].forEach(id => {
+    document.getElementById(id).addEventListener('change', runSearch);
+  });
+
+  ['superficie_min','prix_max','nb_chambres_min'].forEach(id => {
+    document.getElementById(id).addEventListener('input', runSearchDebounced);
   });
 
   function stars(n) {
@@ -156,11 +155,33 @@
           <div class="meta">Chambre #${r.num_chambre} · ${r.capacite} · ${r.superficie} m²</div>
           <div class="meta">Vue: ${r.vue} · Lit supplémentaire: ${r.poss_ajout_lit ? 'Oui' : 'Non'}</div>
           <div class="actions">
-            <a href="reservation.html?${query}" class="btn btn-primary btn-sm">Réserver</a>
-            <a href="location-direct.html?${query}" class="btn btn-success btn-sm">Louer directement</a>
+            ${mode !== 'location' ? `<a href="reservation.html?${query}" class="btn btn-primary btn-sm">Réserver</a>` : ''}
+            ${mode !== 'reservation' ? `<a href="location-direct.html?${query}" class="btn btn-success btn-sm">Louer directement</a>` : ''}
           </div>
         </div>`;
-    }).join('');
+    }).join('');    
+  }
+
+  let debounceTimer;
+
+  async function runSearch() {
+    const params = new URLSearchParams();
+    ['date_debut','date_fin','capacite','superficie_min','id_chaine','categorie','zone','prix_max','nb_chambres_min'].forEach(k => {
+      const v = document.getElementById(k).value;
+      if (v) params.append(k, v);
+    });
+
+    try {
+      const rooms = await apiFetch('/api/search/chambres?' + params.toString());
+      renderResults(rooms, params);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  function runSearchDebounced() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(runSearch, 350);
   }
 </script>
 </body>

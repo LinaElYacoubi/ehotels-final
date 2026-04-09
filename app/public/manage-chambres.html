@@ -63,9 +63,49 @@
         <button class="btn btn-primary" onclick="openModal()">+ Ajouter une chambre</button>
       </div>
       <div class="card">
-        <div class="form-group" style="max-width:280px;margin-bottom:0;">
-          <label>Filtrer par hôtel</label>
-          <select id="filter-hotel" onchange="load()"></select>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>ID hôtel</label>
+            <input type="number" id="f_id_hotel">
+          </div>
+
+          <div class="form-group">
+            <label>N° chambre</label>
+            <input type="number" id="f_num_chambre">
+          </div>
+
+          <div class="form-group">
+            <label>Capacité</label>
+            <select id="f_capacite">
+              <option value="">Toutes</option>
+              <option value="simple">Simple</option>
+              <option value="double">Double</option>
+              <option value="triple">Triple</option>
+              <option value="suite">Suite</option>
+              <option value="familiale">Familiale</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>État</label>
+            <select id="f_etat">
+              <option value="">Tous</option>
+              <option value="disponible">Disponible</option>
+              <option value="occupee">Occupée</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="endommagee">Endommagée</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Prix max</label>
+            <input type="number" id="f_prix_max" min="0" step="0.01">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:10px;">
+          <button class="btn btn-primary" onclick="load()">Filtrer</button>
+          <button class="btn btn-outline" onclick="resetFilters()">Réinitialiser</button>
         </div>
       </div>
       <div class="card">
@@ -109,13 +149,24 @@
         </div>
         <div class="form-group"><label>Prix ($/nuit)</label><input type="number" id="prix" required min="1" step="0.01"></div>
         <div class="form-group"><label>Superficie (m²)</label><input type="number" id="superficie" required min="1"></div>
-        <div class="form-group"><label>Vue</label><input type="text" id="vue" required placeholder="ex: mer, ville"></div>
+        <div class="form-group">
+          <label>Vue</label>
+          <select id="vue" required>
+            <option value="">--</option>
+            <option value="ville">Ville</option>
+            <option value="mer">Mer</option>
+            <option value="montagne">Montagne</option>
+            <option value="jardin">Jardin</option>
+            <option value="aucune">Aucune</option>
+          </select>
+        </div>
         <div class="form-group">
           <label>État</label>
           <select id="etat" required>
             <option value="disponible">Disponible</option>
+            <option value="occupee">Occupée</option>
             <option value="maintenance">Maintenance</option>
-            <option value="hors service">Hors service</option>
+            <option value="endommagee">Endommagée</option>
           </select>
         </div>
         <div class="form-group">
@@ -167,16 +218,28 @@
     });
   }
 
-  async function initFilter() {
-    await populateSelect('filter-hotel', '/api/hotels', 'id_hotel', 'nom_hotel', 'Tous les hôtels');
-  }
-
   async function load() {
-    const id_hotel = document.getElementById('filter-hotel').value;
-    const url = '/api/chambres' + (id_hotel ? `?id_hotel=${id_hotel}` : '');
-    const rows = await apiFetch(url);
+    const params = new URLSearchParams();
+
+    [
+      ['id_hotel', 'f_id_hotel'],
+      ['num_chambre', 'f_num_chambre'],
+      ['capacite', 'f_capacite'],
+      ['etat', 'f_etat'],
+      ['prix_max', 'f_prix_max']
+    ].forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      if (el && el.value !== '') params.append(key, el.value);
+    });
+
+    const rows = await apiFetch('/api/chambres' + (params.toString() ? '?' + params.toString() : ''));
     const tbody = document.getElementById('table-body');
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Aucune chambre.</td></tr>'; return; }
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="empty">Aucune chambre.</td></tr>';
+      return;
+    }
+
     tbody.innerHTML = rows.map(c => `
       <tr>
         <td>${c.nom_hotel}</td><td>${c.num_chambre}</td><td>${c.capacite}</td>
@@ -189,6 +252,21 @@
           <button class="btn btn-danger btn-sm" onclick="del(${c.id_hotel},${c.num_chambre})">Supprimer</button>
         </div></td>
       </tr>`).join('');
+  }
+
+  function resetFilters() {
+    [
+      'f_id_hotel',
+      'f_num_chambre',
+      'f_capacite',
+      'f_etat',
+      'f_prix_max'
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+
+    load();
   }
 
   async function openModal(c = null) {
@@ -247,7 +325,7 @@
     } catch (err) { showToast(err.message, 'error'); }
   }
 
-  Promise.all([initFilter(), initCommodites()]).then(load);
+  initCommodites().then(load);
 </script>
 </body>
 </html>

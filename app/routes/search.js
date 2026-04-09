@@ -1,10 +1,21 @@
 const router = require('express').Router();
 const db = require('../db');
+const { getDbErrorMessage } = require('../utils/dbErrorMessage');
 
 // GET /api/search/chambres
 router.get('/chambres', async (req, res, next) => {
   try {
-    const { date_debut, date_fin, capacite, superficie_min, id_chaine, categorie, prix_max, zone } = req.query;
+    const {
+      date_debut,
+      date_fin,
+      capacite,
+      superficie_min,
+      id_chaine,
+      categorie,
+      prix_max,
+      zone,
+      nb_chambres_min
+    } = req.query;
     const params = [];
     let i = 1;
     let where = [];
@@ -14,18 +25,17 @@ router.get('/chambres', async (req, res, next) => {
         SELECT 1 FROM RESERVATION r
         WHERE r.id_hotel = c.id_hotel AND r.num_chambre = c.num_chambre
           AND r.statut NOT IN ('annulee','convertie')
-          AND r.date_debut <= $${i+1} AND r.date_fin >= $${i}
+          AND $${i} < r.date_fin AND $${i+1} > r.date_debut
       ) AND NOT EXISTS (
         SELECT 1 FROM LOCATION l
         WHERE l.id_hotel = c.id_hotel AND l.num_chambre = c.num_chambre
           AND l.statut NOT IN ('terminee','annulee')
-          AND l.date_debut <= $${i+1} AND l.date_fin >= $${i}
+          AND $${i} < l.date_fin AND $${i+1} > l.date_debut
       )`);
       params.push(date_debut, date_fin);
       i += 2;
     }
 
-    const { nb_chambres_min } = req.query;
     if (capacite)        { where.push(`c.capacite = $${i++}`);          params.push(capacite); }
     if (superficie_min)  { where.push(`c.superficie >= $${i++}`);       params.push(parseInt(superficie_min)); }
     if (id_chaine)       { where.push(`h.id_chaine = $${i++}`);         params.push(parseInt(id_chaine)); }
@@ -45,7 +55,9 @@ router.get('/chambres', async (req, res, next) => {
     `;
     const result = await db.query(sql, params);
     res.json(result.rows);
-  } catch (err) { next(err); }
+    } catch (err) {
+      return res.status(400).json({ error: getDbErrorMessage(err) });
+    }
 });
 
 // GET /api/search/zones
@@ -53,7 +65,9 @@ router.get('/zones', async (req, res, next) => {
   try {
     const result = await db.query('SELECT DISTINCT zone FROM HOTEL ORDER BY zone');
     res.json(result.rows.map(r => r.zone));
-  } catch (err) { next(err); }
+    } catch (err) {
+      return res.status(400).json({ error: getDbErrorMessage(err) });
+    }
 });
 
 module.exports = router;

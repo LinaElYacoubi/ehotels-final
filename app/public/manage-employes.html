@@ -38,6 +38,41 @@
         <button class="btn btn-primary" onclick="openModal()">+ Ajouter un employé</button>
       </div>
       <div class="card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>ID employé</label>
+            <input type="number" id="f_id_employe">
+          </div>
+
+          <div class="form-group">
+            <label>Nom complet</label>
+            <input type="text" id="f_nom_complet" placeholder="Nom ou prénom">
+          </div>
+
+          <div class="form-group">
+            <label>ID hôtel</label>
+            <input type="number" id="f_id_hotel">
+          </div>
+
+          <div class="form-group">
+            <label>Rôle</label>
+            <select id="f_role">
+              <option value="">Tous</option>
+              <option value="gestionnaire">Gestionnaire</option>
+              <option value="receptionniste">Réceptionniste</option>
+              <option value="menage">Ménage</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="concierge">Concierge</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:10px;">
+          <button class="btn btn-primary" onclick="load()">Filtrer</button>
+          <button class="btn btn-outline" onclick="resetFilters()">Réinitialiser</button>
+        </div>
+      </div>
+      <div class="card">
         <div class="table-wrap">
           <table>
             <thead>
@@ -93,9 +128,26 @@
 <script src="js/shared.js"></script>
 <script>
   async function load() {
-    const rows = await apiFetch('/api/employes');
+    const params = new URLSearchParams();
+
+    [
+      ['id_employe', 'f_id_employe'],
+      ['nom_complet', 'f_nom_complet'],
+      ['id_hotel', 'f_id_hotel'],
+      ['role', 'f_role']
+    ].forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      if (el && el.value) params.append(key, el.value);
+    });
+
+    const rows = await apiFetch('/api/employes' + (params.toString() ? '?' + params.toString() : ''));
     const tbody = document.getElementById('table-body');
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucun employé.</td></tr>'; return; }
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucun employé.</td></tr>';
+      return;
+    }
+
     tbody.innerHTML = rows.map(e => `
       <tr>
         <td>${e.id_employe}</td><td>${e.nom}</td><td>${e.prenom}</td>
@@ -105,6 +157,20 @@
           <button class="btn btn-danger btn-sm" onclick="del(${e.id_employe})">Supprimer</button>
         </div></td>
       </tr>`).join('');
+  }
+
+  function resetFilters() {
+    [
+      'f_id_employe',
+      'f_nom_complet',
+      'f_id_hotel',
+      'f_role'
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+
+    load();
   }
 
   async function openModal(e = null) {

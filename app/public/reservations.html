@@ -35,20 +35,39 @@
           <h1>Réservations</h1>
           <p class="page-subtitle">Gérer les réservations et effectuer les check-ins.</p>
         </div>
-        <a href="search.html" class="btn btn-success">+ Nouvelle réservation</a>
+        <a href="search.html?mode=reservation" class="btn btn-success">+ Nouvelle réservation</a>
       </div>
       <div class="card">
-        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="form-grid">
           <div class="form-group">
-            <label>Filtrer par statut</label>
-            <select id="filter-statut">
+            <label>ID réservation</label>
+            <input type="number" id="f_id_reservation">
+          </div>
+
+          <div class="form-group">
+            <label>Client</label>
+            <input type="text" id="f_client">
+          </div>
+
+          <div class="form-group">
+            <label>Statut</label>
+            <select id="f_statut">
               <option value="">Tous</option>
               <option value="confirmee">Confirmée</option>
               <option value="annulee">Annulée</option>
               <option value="convertie">Convertie</option>
             </select>
           </div>
-          <button class="btn btn-outline" onclick="loadReservations()">Actualiser</button>
+
+          <div class="form-group">
+            <label>Arrivée à partir de</label>
+            <input type="date" id="f_date_debut_min">
+          </div>
+
+          <div class="form-group">
+            <label>Départ jusqu’à</label>
+            <input type="date" id="f_date_fin_max">
+          </div>
         </div>
       </div>
       <div class="card">
@@ -70,6 +89,24 @@
   </div>
 </div>
 
+<dialog id="checkin-modal">
+  <div class="modal-header">
+    <h2>Effectuer le check-in</h2>
+    <button class="modal-close" onclick="closeCheckinModal()">×</button>
+  </div>
+  <div class="modal-body">
+    <input type="hidden" id="checkin-reservation-id">
+    <div class="form-group">
+      <label>Employé responsable</label>
+      <select id="checkin-id-employe" required></select>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-outline" onclick="closeCheckinModal()">Annuler</button>
+    <button class="btn btn-success" onclick="confirmCheckin()">Confirmer</button>
+  </div>
+</dialog>
+
 <script src="js/shared.js"></script>
 <script>
   function statusBadge(s) {
@@ -78,10 +115,21 @@
   }
 
   async function loadReservations() {
-    const statut = document.getElementById('filter-statut').value;
-    const url = '/api/reservations' + (statut ? `?statut=${statut}` : '');
+    const params = new URLSearchParams();
+
+      [
+        ['id_reservation', 'f_id_reservation'],
+        ['client', 'f_client'],
+        ['statut', 'f_statut'],
+        ['date_debut_min', 'f_date_debut_min'],
+        ['date_fin_max', 'f_date_fin_max']
+      ].forEach(([key, id]) => {
+        const v = document.getElementById(id).value;
+      if (v) params.append(key, v);
+    });
+
     try {
-      const rows = await apiFetch(url);
+      const rows = await apiFetch('/api/reservations' + (params.toString() ? '?' + params.toString() : ''));
       const tbody = document.getElementById('reservations-body');
       if (!rows.length) {
         tbody.innerHTML = '<tr><td colspan="8" class="empty">Aucune réservation trouvée.</td></tr>';
@@ -99,7 +147,7 @@
           <td>
             <div class="actions-cell">
               ${r.statut === 'confirmee' ? `
-                <button class="btn btn-success btn-sm" onclick="convertReservation(${r.id_reservation})">Check-in</button>
+                <button class="btn btn-success btn-sm" onclick="openCheckinModal(${r.id_reservation}, ${r.id_hotel})">Check-in</button>
                 <button class="btn btn-danger btn-sm" onclick="cancelReservation(${r.id_reservation})">Annuler</button>
               ` : ''}
             </div>
@@ -111,10 +159,46 @@
     }
   }
 
-  async function convertReservation(id) {
-    if (!confirm('Confirmer le check-in ? La réservation sera convertie en location.')) return;
+  async function openCheckinModal(idReservation, idHotel) {
     try {
-      await apiFetch(`/api/reservations/${id}/convert`, { method: 'POST' });
+      const employes = await apiFetch(`/api/employes?id_hotel=${idHotel}`);
+      const sel = document.getElementById('checkin-id-employe');
+
+      sel.innerHTML = '<option value="">-- Sélectionner un employé --</option>';
+      employes.forEach(e => {
+        const o = document.createElement('option');
+        o.value = e.id_employe;
+        o.textContent = `${e.prenom} ${e.nom} (${e.role})`;
+        sel.appendChild(o);
+      });
+
+      document.getElementById('checkin-reservation-id').value = idReservation;
+      document.getElementById('checkin-modal').showModal();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  function closeCheckinModal() {
+    document.getElementById('checkin-modal').close();
+  }
+
+  async function confirmCheckin() {
+    const id = document.getElementById('checkin-reservation-id').value;
+    const id_employe = document.getElementById('checkin-id-employe').value;
+
+    if (!id_employe) {
+      showToast("Sélectionnez un employé.", 'error');
+      return;
+    }
+
+    try {
+      await apiFetch(`/api/reservations/${id}/convert`, {
+        method: 'POST',
+        body: JSON.stringify({ id_employe })
+      });
+
+      closeCheckinModal();
       showToast('Réservation convertie en location !');
       loadReservations();
     } catch (err) {
@@ -122,12 +206,23 @@
     }
   }
 
+  function resetFilters() {
+    [
+      'f_id_reservation',
+      'f_client',
+      'f_statut',
+      'f_date_debut_min',
+      'f_date_fin_max'
+    ].forEach(id => document.getElementById(id).value = '');
+    loadReservations();
+  }
+
   async function cancelReservation(id) {
     if (!confirm('Annuler cette réservation ?')) return;
     try {
       await apiFetch(`/api/reservations/${id}`, {
         method: 'PUT',
-        body: JSON.stringify({ statut: 'annulee', date_debut: null, date_fin: null })
+        body: JSON.stringify({ statut: 'annulee' })
       });
       showToast('Réservation annulée.');
       loadReservations();
@@ -136,7 +231,6 @@
     }
   }
 
-  document.getElementById('filter-statut').addEventListener('change', loadReservations);
   loadReservations();
 </script>
 </body>

@@ -38,6 +38,24 @@
         <button class="btn btn-primary" onclick="openModal()">+ Ajouter une chaîne</button>
       </div>
       <div class="card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>ID chaîne</label>
+            <input type="number" id="f_id_chaine">
+          </div>
+
+          <div class="form-group">
+            <label>Nom de la chaîne</label>
+            <input type="text" id="f_nom_chaine">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:10px;">
+          <button class="btn btn-primary" onclick="load()">Filtrer</button>
+          <button class="btn btn-outline" onclick="resetFilters()">Réinitialiser</button>
+        </div>
+      </div>
+      <div class="card">
         <div class="table-wrap">
           <table>
             <thead>
@@ -78,9 +96,24 @@
 <script src="js/shared.js"></script>
 <script>
   async function load() {
-    const rows = await apiFetch('/api/chaines');
+    const params = new URLSearchParams();
+
+    [
+      ['id_chaine', 'f_id_chaine'],
+      ['nom_chaine', 'f_nom_chaine']
+    ].forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      if (el && el.value) params.append(key, el.value);
+    });
+
+    const rows = await apiFetch('/api/chaines' + (params.toString() ? '?' + params.toString() : ''));
     const tbody = document.getElementById('table-body');
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucune chaîne.</td></tr>'; return; }
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty">Aucune chaîne.</td></tr>';
+      return;
+    }
+
     tbody.innerHTML = rows.map(c => `
       <tr>
         <td>${c.id_chaine}</td>
@@ -94,6 +127,18 @@
           <button class="btn btn-danger btn-sm" onclick="del(${c.id_chaine})">Supprimer</button>
         </div></td>
       </tr>`).join('');
+  }
+
+  function resetFilters() {
+    [
+      'f_id_chaine',
+      'f_nom_chaine'
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+
+    load();
   }
 
   function openModal(c = null) {

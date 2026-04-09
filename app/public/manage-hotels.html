@@ -38,13 +38,53 @@
         <button class="btn btn-primary" onclick="openModal()">+ Ajouter un hôtel</button>
       </div>
       <div class="card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>ID hôtel</label>
+            <input type="number" id="f_id_hotel">
+          </div>
+
+          <div class="form-group">
+            <label>Nom hôtel</label>
+            <input type="text" id="f_nom_hotel">
+          </div>
+
+          <div class="form-group">
+            <label>ID chaîne</label>
+            <input type="number" id="f_id_chaine">
+          </div>
+
+          <div class="form-group">
+            <label>Zone</label>
+            <input type="text" id="f_zone">
+          </div>
+
+          <div class="form-group">
+            <label>Catégorie</label>
+            <select id="f_categorie">
+              <option value="">Toutes</option>
+              <option value="1">★</option>
+              <option value="2">★★</option>
+              <option value="3">★★★</option>
+              <option value="4">★★★★</option>
+              <option value="5">★★★★★</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:10px;">
+          <button class="btn btn-primary" onclick="load()">Filtrer</button>
+          <button class="btn btn-outline" onclick="resetFilters()">Réinitialiser</button>
+        </div>
+      </div>
+      <div class="card">
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>ID</th><th>Nom</th><th>Chaîne</th><th>Zone</th><th>Catégorie</th><th>Email</th><th>Téléphone</th><th>Chambres</th><th>Actions</th></tr>
+              <tr><th>ID</th><th>Nom</th><th>Chaîne</th><th>Zone</th><th>Catégorie</th><th>Gestionnaire</th><th>Email</th><th>Téléphone</th><th>Chambres</th><th>Actions</th></tr>
             </thead>
             <tbody id="table-body">
-              <tr><td colspan="9" class="empty">Chargement...</td></tr>
+              <tr><td colspan="10" class="empty">Chargement...</td></tr>
             </tbody>
           </table>
         </div>
@@ -75,6 +115,11 @@
             <option value="5">★★★★★</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>Gestionnaire</label>
+          <select id="id_gestionnaire"></select>
+          <small id="gestionnaire-help" style="color:var(--muted);display:block;margin-top:4px;"></small>
+        </div>
         <div class="form-group"><label>Zone</label><input type="text" id="zone" required placeholder="ex: Ottawa"></div>
         <div class="form-group" style="grid-column:span 2"><label>Adresse</label><input type="text" id="adresse" required></div>
         <div class="form-group"><label>Email de contact</label><input type="email" id="email" placeholder="ex: info@hotel.com"></div>
@@ -93,13 +138,31 @@
   function stars(n) { return '★'.repeat(n) + '☆'.repeat(5-n); }
 
   async function load() {
-    const rows = await apiFetch('/api/hotels');
+    const params = new URLSearchParams();
+
+    [
+      ['id_hotel', 'f_id_hotel'],
+      ['nom_hotel', 'f_nom_hotel'],
+      ['id_chaine', 'f_id_chaine'],
+      ['zone', 'f_zone'],
+      ['categorie', 'f_categorie']
+    ].forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      if (el && el.value) params.append(key, el.value);
+    });
+
+    const rows = await apiFetch('/api/hotels' + (params.toString() ? '?' + params.toString() : ''));
     const tbody = document.getElementById('table-body');
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">Aucun hôtel.</td></tr>'; return; }
+
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="10" class="empty">Aucun hôtel.</td></tr>';
+      return;
+    }
+
     tbody.innerHTML = rows.map(h => `
       <tr>
         <td>${h.id_hotel}</td><td>${h.nom_hotel}</td><td>${h.nom_chaine}</td>
-        <td>${h.zone}</td><td><span class="stars">${stars(h.categorie)}</span></td>
+        <td>${h.zone}</td><td><span class="stars">${stars(h.categorie)}</span></td><td>${h.gestionnaire_nom || '—'}</td>
         <td>${h.email || '—'}</td><td>${h.telephone || '—'}</td><td>${h.nb_chambre}</td>
         <td><div class="actions-cell">
           <button class="btn btn-primary btn-sm" onclick='openModal(${JSON.stringify(h)})'>Modifier</button>
@@ -108,12 +171,47 @@
       </tr>`).join('');
   }
 
+  function resetFilters() {
+    [
+      'f_id_hotel',
+      'f_nom_hotel',
+      'f_id_chaine',
+      'f_zone',
+      'f_categorie'
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+
+    load();
+  }
+
   async function openModal(h = null) {
     await populateSelect('id_chaine', '/api/chaines', 'id_chaine', 'nom_chaine', '-- Sélectionner --');
+    const selGest = document.getElementById('id_gestionnaire');
+    selGest.innerHTML = '<option value="">-- Aucun --</option>';
+    const helpGest = document.getElementById('gestionnaire-help');
+    if (h?.id_hotel) {
+      selGest.disabled = false;
+      helpGest.textContent = "Sélectionnez un gestionnaire déjà créé pour cet hôtel.";
+
+      const gestionnaires = await apiFetch(`/api/employes?id_hotel=${h.id_hotel}&role=gestionnaire`);
+      gestionnaires.forEach(g => {
+        const o = document.createElement('option');
+        o.value = g.id_employe;
+        o.textContent = `${g.prenom} ${g.nom}`;
+        selGest.appendChild(o);
+      });
+    } else {
+      selGest.disabled = true;
+      selGest.innerHTML = '<option value="">Créer d’abord l’hôtel</option>';
+      helpGest.textContent = "Le gestionnaire pourra être assigné juste après la création de l’hôtel.";
+    }
     document.getElementById('modal-title').textContent = h ? 'Modifier l\'hôtel' : 'Ajouter un hôtel';
     document.getElementById('edit-id').value = h?.id_hotel || '';
     document.getElementById('nom_hotel').value = h?.nom_hotel || '';
     document.getElementById('id_chaine').value = h?.id_chaine || '';
+    document.getElementById('id_gestionnaire').value = h?.id_gestionnaire || '';
     document.getElementById('categorie').value = h?.categorie || '';
     document.getElementById('zone').value = h?.zone || '';
     document.getElementById('adresse').value = h?.adresse || '';
@@ -126,21 +224,34 @@
   async function save() {
     const id = document.getElementById('edit-id').value;
     const body = {
-      nom_hotel:  document.getElementById('nom_hotel').value,
-      id_chaine:  document.getElementById('id_chaine').value,
-      categorie:  document.getElementById('categorie').value,
-      zone:       document.getElementById('zone').value,
-      adresse:    document.getElementById('adresse').value,
-      email:      document.getElementById('email').value || null,
-      telephone:  document.getElementById('telephone').value || null,
+      nom_hotel:        document.getElementById('nom_hotel').value,
+      id_chaine:        document.getElementById('id_chaine').value,
+      id_gestionnaire:  document.getElementById('id_gestionnaire').value || null,
+      categorie:        document.getElementById('categorie').value,
+      zone:             document.getElementById('zone').value,
+      adresse:          document.getElementById('adresse').value,
+      email:            document.getElementById('email').value || null,
+      telephone:        document.getElementById('telephone').value || null,
     };
     try {
-      if (id) await apiFetch(`/api/hotels/${id}`, { method: 'PUT', body: JSON.stringify(body) });
-      else    await apiFetch('/api/hotels', { method: 'POST', body: JSON.stringify(body) });
+      let saved;
+      if (id) saved = await apiFetch(`/api/hotels/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+      else    saved = await apiFetch('/api/hotels', { method: 'POST', body: JSON.stringify(body) });      
+      
       showToast('Hôtel enregistré !');
       closeModal();
-      load();
-    } catch (err) { showToast(err.message, 'error'); }
+      await load();
+
+      if (!id && saved?.id_hotel) {
+        setTimeout(async () => {
+          const fullHotel = await apiFetch(`/api/hotels/${saved.id_hotel}`);
+          openModal(fullHotel);
+          showToast("Vous pouvez maintenant assigner un gestionnaire si un employé gestionnaire existe déjà pour cet hôtel.");
+        }, 300);
+      }
+    } catch (err) { 
+      showToast(err.message, 'error');
+    }
   }
 
   async function del(id) {

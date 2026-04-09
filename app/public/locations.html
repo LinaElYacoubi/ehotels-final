@@ -35,20 +35,52 @@
           <h1>Locations</h1>
           <p class="page-subtitle">Locations en cours et historique des séjours.</p>
         </div>
-        <a href="search.html" class="btn btn-success">+ Location directe</a>
+        <a href="search.html?mode=location" class="btn btn-success">+ Location directe</a>
       </div>
       <div class="card">
-        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+        <div class="form-grid">
           <div class="form-group">
-            <label>Filtrer par statut</label>
-            <select id="filter-statut">
+            <label>ID location</label>
+            <input type="number" id="f_id_location">
+          </div>
+
+          <div class="form-group">
+            <label>Client</label>
+            <input type="text" id="f_client">
+          </div>
+
+          <div class="form-group">
+            <label>Statut</label>
+            <select id="f_statut">
               <option value="">Tous</option>
               <option value="en_cours">En cours</option>
               <option value="terminee">Terminée</option>
               <option value="annulee">Annulée</option>
             </select>
           </div>
-          <button class="btn btn-outline" onclick="loadLocations()">Actualiser</button>
+
+          <div class="form-group">
+            <label>Origine</label>
+            <select id="f_source_location">
+              <option value="">Toutes</option>
+              <option value="directe">Directe</option>
+              <option value="apres_reservation">Après réservation</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Arrivée à partir de</label>
+            <input type="date" id="f_date_debut_min">
+          </div>
+
+          <div class="form-group">
+            <label>Départ jusqu’à</label>
+            <input type="date" id="f_date_fin_max">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:10px;">
+          <button class="btn btn-primary" onclick="loadLocations()">Filtrer</button>
+          <button class="btn btn-outline" onclick="resetFilters()">Réinitialiser</button>
         </div>
       </div>
       <div class="card">
@@ -57,11 +89,11 @@
             <thead>
               <tr>
                 <th>#</th><th>Client</th><th>Hôtel</th><th>Chambre</th>
-                <th>Arrivée</th><th>Départ</th><th>Statut</th><th>Actions</th>
+                <th>Arrivée</th><th>Départ</th><th>Origine</th><th>Employé</th><th>Statut</th><th>Actions</th>
               </tr>
             </thead>
             <tbody id="locations-body">
-              <tr><td colspan="8" class="empty">Chargement...</td></tr>
+              <tr><td colspan="10" class="empty">Chargement...</td></tr>
             </tbody>
           </table>
         </div>
@@ -78,13 +110,25 @@
   }
 
   async function loadLocations() {
-    const statut = document.getElementById('filter-statut').value;
-    const url = '/api/locations' + (statut ? `?statut=${statut}` : '');
+    const params = new URLSearchParams();
+
+    [
+      ['id_location', 'f_id_location'],
+      ['client', 'f_client'],
+      ['statut', 'f_statut'],
+      ['source_location', 'f_source_location'],
+      ['date_debut_min', 'f_date_debut_min'],
+      ['date_fin_max', 'f_date_fin_max']
+    ].forEach(([key, id]) => {
+      const v = document.getElementById(id).value;
+      if (v) params.append(key, v);
+    });
+
     try {
-      const rows = await apiFetch(url);
+      const rows = await apiFetch('/api/locations' + (params.toString() ? '?' + params.toString() : ''));
       const tbody = document.getElementById('locations-body');
       if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="empty">Aucune location trouvée.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="empty">Aucune location trouvée.</td></tr>';
         return;
       }
       tbody.innerHTML = rows.map(r => `
@@ -95,6 +139,8 @@
           <td>${r.num_chambre || '—'}</td>
           <td>${r.date_debut}</td>
           <td>${r.date_fin}</td>
+          <td>${r.source_location || '—'}</td>
+          <td>${r.employe_nom || '—'}</td>
           <td>${statusBadge(r.statut)}</td>
           <td>
             <div class="actions-cell">
@@ -108,6 +154,18 @@
     } catch (err) {
       showToast(err.message, 'error');
     }
+  }
+
+  function resetFilters() {
+    [
+      'f_id_location',
+      'f_client',
+      'f_statut',
+      'f_source_location',
+      'f_date_debut_min',
+      'f_date_fin_max'
+    ].forEach(id => document.getElementById(id).value = '');
+    loadLocations();
   }
 
   async function checkout(id) {
@@ -124,7 +182,6 @@
     }
   }
 
-  document.getElementById('filter-statut').addEventListener('change', loadLocations);
   loadLocations();
 </script>
 </body>
