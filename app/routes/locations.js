@@ -159,7 +159,7 @@ router.post('/', async (req, res, next) => {
         id_employe,
         statut
       )
-      VALUES ($1,$2,$3,'directe',$4,$5,CURRENT_DATE,NULL,$6,'en_cours')
+      VALUES ($1,$2,$3,'directe',$4,$5,CURRENT_DATE,NULL,$6,'active')
       RETURNING *`,
       [id_client, id_hotel, num_chambre, date_debut, date_fin, id_employe]
     );

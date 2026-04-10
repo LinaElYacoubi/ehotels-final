@@ -82,7 +82,7 @@ CREATE TABLE RESERVATION (
     ),
     date_fin DATE NOT NULL,
     statut VARCHAR(30) NOT NULL CHECK (
-        statut IN ('confirmee','annulee','convertie')
+        statut IN ('en_attente','confirmee','annulee','convertie')
     ),
     FOREIGN KEY (id_client)
         REFERENCES CLIENT(id_client),
@@ -91,7 +91,7 @@ CREATE TABLE RESERVATION (
         ON DELETE SET NULL
 );
 
--- TABLE LOCATION
+
 -- TABLE LOCATION
 CREATE TABLE LOCATION (
     id_location SERIAL PRIMARY KEY,
@@ -118,7 +118,7 @@ CREATE TABLE LOCATION (
         REFERENCES EMPLOYE(id_employe)
         ON DELETE SET NULL,
     CHECK (source_location IN ('directe', 'apres_reservation')),
-    CHECK (statut IN ('en_cours', 'terminee', 'annulee')),
+    CHECK (statut IN ('active', 'terminee', 'annulee')),
     CHECK (date_debut < date_fin),
     CHECK (
         (source_location = 'directe' AND id_reservation IS NULL)

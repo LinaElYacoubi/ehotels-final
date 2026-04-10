@@ -194,7 +194,7 @@ router.post('/:id/convert', async (req, res, next) => {
           id_employe,
           statut
       )
-      VALUES ($1,$2,$3,'apres_reservation',$4,$5,CURRENT_DATE,$6,$7,'en_cours')
+      VALUES ($1,$2,$3,'apres_reservation',$4,$5,CURRENT_DATE,$6,$7,'active')
       RETURNING *`,
       [r.id_client, r.id_hotel, r.num_chambre, r.date_debut, r.date_fin, r.id_reservation, id_employe]
     );
